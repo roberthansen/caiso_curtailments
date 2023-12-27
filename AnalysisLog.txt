@@ -1,0 +1,102 @@
+Objective:
+Determine correlation between generator forced outages and ambient temperatures.
+
+Approach Taken:
+1.  Retrieve Previous Trade Day Curtailment Reports from CAISO's website:
+    a.  CAISO publishes previous trade day curtailment reports since June 18,
+        2021.
+    b.  Prepare a Python script to retrieve all available reports
+        (retrieve_caiso_curtailments.py) and extract curtailments attributed to
+        OUTAGE TYPE==FORCED and NATURE OF WORK==AMBIENT_DUE_TO_TEMP and save to
+        Forced_AmbientTemp.csv; also get list of unique resource ids and save to
+        Resources.csv. (get_resource_locations method in select_weather_stations.py)
+    c.  Run script.
+    Note: retrieve_caiso_curtailments.py is designed to log downloaded reports
+        in download_log.csv to avoid repeatedly downloading files if executed
+        multiple times. If issues arise, they may be resolved by deleting the
+        log and report files before running the script.
+2.  Get locations for each generation resource:
+    a.  The work_david database on EZDB contains geospatial information on many
+        generation resources in California.
+    b.  Prepare a Python/psycopg2/postgresql script to retrieve location data
+        for the resources which have experienced ambient temperature derate
+        events identified during the previous step (get_resource_locations
+        function in select_weather_stations.py).
+    c.  Run script and verify outputs.
+3.  Identify appropriate weather stations for each generator resource listed
+    in Forced_AmbientTemp.csv
+    a.  The work_david database on EZDB contains weather data from a set of
+        weather stations identified in the table latlonmap.
+    b.  Prepare a Python/psycopg2/postgresql script to determine distances
+        between generation resources and weather stations and identify the
+        closest pairs.
+    c.  Run script and verify outputs.
+4.  Obtain contemporary weather data for curtailments.
+    a.  The weather data on the work_david database on EZDB does not include the
+        days for which CAISO has published prior trade day curtailments, so the
+        data for the identified weather stations must be obtained from NOAA
+        at www.ncei.noaa.gov/access/search/dataset-search/global-hourly
+    b.  Generate a table of place names for each weather station id paired with
+        resources in the previous step, saved to WeatherStationIDsToNames.csv
+    c.  Search for the relevant data files on the NOAA website using the
+        place names and select them for download.
+    d.  Downloading files requires a NOAA account and takes a few minutes to
+        process. The link to download is delivered to the email address
+        associated with the NOAA account.
+    e.  Download weather data files and move them to the project directory.
+5.  Calculate wet-bulb temperatures.
+    NOTE: wet-bulb temperatures are no longer considered, as humidity was
+        determined to have minimal explanatory value in predicting derates, thus
+        only dry-bulb temperatures are used.
+    a.  Parse the weather data to extract hourly dry-bulb temperatures, dew
+        points, and atmospheric pressures.
+    b.  Temperatures (including dry-bulb and dew point) are stored as strings
+        containing the observed temperature in degrees C multiplied by ten,
+        followed by a comma and a single-digit observation quality code. The
+        temperatures must be extracted from the string and converted into
+        floating point numbers, using only observations of sufficient quality.
+    c.  Atmospheric pressures are stored in the MA1 field as strings containing
+        four comma-separated values: an altimeter setting pressure, an altimeter
+        quality code, an absolute pressure observation, and a pressure quality
+        code. The absolute pressures must be extracted from the string and
+        converted into floating point numbers, using only observations of
+        sufficient quality.
+    d.  Calculate wet-bulb temperatures using the metpy library's iterative
+        solver with the parsed temperature and pressure values.
+    e.  Prepare a Python script to perform these operations.
+    f.  Run the script and verify outputs.
+6.  Merge the curtailment and weather data on hourly intervals and correlate
+    ambient air temperatures (both dry- and wet-bulb) with curtailment amount,
+    and calculate linear regression coefficients.
+    a.  The curtailment data is presented in inconsistent intervals, and must be
+        normalized in order to compare against weather data
+    b.  Use the mapping between generation resources and weather stations from
+        step 3 as intermediary between the data sets.
+    c.  Optionally, impute zero curtailment (i.e., full capacity availability)
+        for all hours where no other curtailments of any cause are reported.
+    d.  Exclude excessively high curtailments (>30%) unlikely to be solely
+        attributable to ambient temperature.
+    e.  Calculate regression coefficients and goodness-of-fit measures for each
+        resource individually.
+    f.  Prepare a Python script to perform these operations.
+    g.  Run the script and verify outputs.
+7.  Apply resource-level regression coefficients to normalize temperatures.
+    a.  Set a target curtailment rate between 0 and the maximum curtailment of
+        30%.
+    b.  Subtract the target curtailment from the resource-level regression
+        intercept value and divide the result by the regression slope. Add the
+        result to the temperature. The resulting value represents the delta
+        between the temperature and a baseline temperature at which the
+        predicted curtailment is the target.
+8.  Filter out poorly fit resources and perform linear regression on all
+    resources of a given unit type.
+    a.  Use normalized temperatures (either dry- or wet-bulb) to align
+        the curtailment datasets for each resource.
+    b.  Evaluate the linear regression coefficients and goodness-of-fit
+        parameters for each unit-type.
+    c.  Adjusting the target curtailment in the previous step changes how
+        well the resources line-up. Evaluate the linear regressions with various
+        target curtailments to find the target curtailment with yields the best
+        fit for each unit type.
+9.  ALTERNATIVE: Instead of undergoing steps 7 and 8, apply a multilinear
+    regression on 

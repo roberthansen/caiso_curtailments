@@ -1,0 +1,11 @@
+/caiso_curtailment_reports
+/cif_derates
+/climate_informed_weather_data
+/derates
+/geospatial
+/results
+/weather_data
+/scripts/login.py
+*.csv
+*.xlsx
+*.xls
