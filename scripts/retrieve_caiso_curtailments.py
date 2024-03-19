@@ -272,7 +272,7 @@ class CurtailmentDownloader:
 if __name__=='__main__':
     start_time = ts.now()
     first_date = ts(2021,6,18)
-    last_date = ts(start_time.date())
+    last_date = ts(start_time.date()-td(days=1))
     date_range = [first_date + td(days=d) for d in range((last_date-first_date).days)]
     curtailment_downloader = CurtailmentDownloader(
         download_directory_path=Path(r'M:\Users\RH2\src\caiso_curtailments\caiso_curtailment_reports'),

@@ -226,7 +226,6 @@ class CurtailmentModeller:
             maximum_curtailment:float=1.0,
             minimum_rsquared:float=0.0,
             unit_types:list=None,
-            normalize_temperatures:bool=False,
             impute_zeros:bool=True
         ):
         '''
@@ -257,16 +256,12 @@ class CurtailmentModeller:
                 database, and for which multilinear regression analysis should
                 be performed. Default value is None, which causes no regression
                 analyses.
-            normalize_temperatures - a boolean value to specify whether to
-                adjust resource-level best-fit lines so that all resources of
-                a given unit type intersect at the input target curtailment.
-                Default value is False.
             impute_zeros - a boolean value to specify whether to assume
                 hours during which no curtailments are reported in the prior
                 trade-day curtailment dataset have zero curtailment due to
                 ambient temperatures. Default value is True.
         '''
-        if use_processed and self.data_paths['merged_data_filename'].isfile():
+        if use_processed and self.data_paths['merged_data_filename'].is_file():
             print('Loading Pre-Processed Merged Curtailment and Weather Data')
             df0 = ddf.read_csv(self.data_paths['merged_data_filename'])
         else:
@@ -378,7 +373,7 @@ class CurtailmentModeller:
             df2_pd = df2_pd.drop(columns=['level_1','PERCENT CURTAILMENT'])
             df1 = df1.merge(df2_pd,on='RESOURCE ID')
 
-            # find best-fit lines for each resource using both dry- and wet-bulb temperatures:
+            # find best-fit lines for each resource using both dry- [and wet-bulb temperatures]:
             def f(r):
                 print('\tPerforming Linear Regression on Resource: {}'.format(r.loc['RESOURCE ID']))
                 df0_f = df0.loc[
@@ -420,19 +415,17 @@ class CurtailmentModeller:
         )
         df0 = df0.rename(columns={'NORMALIZED_DRY_BULB_TEMPERATURE':'NORMALIZED DRY BULB TEMPERATURE'})
         # df0 = df0.rename(columns={'NORMALIZED_DRY_BULB_TEMPERATURE':'NORMALIZED DRY BULB TEMPERATURE','NORMALIZED_WET_BULB_TEMPERATURE':'NORMALIZED WET BULB TEMPERATURE'})
-        if normalize_temperatures:
-            temperature_column = 'NORMALIZED DRY BULB TEMPERATURE'
-        else:
-            temperature_column = 'DRY BULB TEMPERATURE'
+        temperature_column = 'DRY BULB TEMPERATURE'
         df2 = pd.DataFrame(df0['UnitType'].unique().to_frame().rename(columns={'UnitType':'UNIT TYPE'}).compute())
         def f(r):
-            print('\tPerforming Linear Regression on Unit Type: {}'.format(r.loc['UNIT TYPE']))
+            print('\tPerforming Multilinear Regression on Unit Type: {}'.format(r.loc['UNIT TYPE']))
             df0_f = df0.loc[
                 (df0['UnitType']==r['UNIT TYPE'])&
                 (df0[temperature_column]>-1e6)&
                 (df0[temperature_column]<1e6)&
                 (df0['PERCENT CURTAILMENT']<maximum_curtailment),
                 [
+                    'WeatherStationID',
                     temperature_column,
                     # 'NORMALIZED WET BULB TEMPERATURE',
                     'PERCENT CURTAILMENT',
@@ -440,6 +433,9 @@ class CurtailmentModeller:
                     # 'WET BULB RSQUARED',
                 ]
             ].compute()
+            for weather_station_id in df0_f.loc[:,'WeatherStationID'].unique():
+                df0_f.loc[:,weather_station_id] = 1 if df0_f.loc[:,'WeatherStationID']==weather_station_id else 0
+            df0_f.drop(columns='WeatherStationID')
             df0_f_d = df0_f.loc[(df0_f.loc[:,'DRY BULB RSQUARED']>minimum_rsquared),[temperature_column,'PERCENT CURTAILMENT']]
             df0_f_d = df0_f.loc[(df0_f.loc[:,'DRY BULB RSQUARED']>minimum_rsquared),[temperature_column,'PERCENT CURTAILMENT']]
             # df0_f_w = df0_f.loc[(df0_f.loc[:,'WET BULB RSQUARED']>minimum_rsquared),['NORMALIZED WET BULB TEMPERATURE','PERCENT CURTAILMENT']]
@@ -485,8 +481,8 @@ class CurtailmentModeller:
 if __name__=='__main__':
     use_processed = False
     directory = Path(r'M:\Users\RH2\src\caiso_curtailments')
-    target_curtailments = [0.01,0.02,0.03,0.04,0.05,0.055,0.06,0.07,0.08,0.09,0.10,0.15,0.20,0.25,0.30]
-    # target_curtailments = [0.07]
+    # target_curtailments = [0.01,0.02,0.03,0.04,0.05,0.055,0.06,0.07,0.08,0.09,0.10,0.15,0.20,0.25,0.30]
+    target_curtailments = [0.07]
     maximum_curtailment = 0.3
     # minimum_rsquared = 0.35
     minimum_rsquared = 0.0
@@ -508,7 +504,6 @@ if __name__=='__main__':
 
     }
     unit_types = ['COMBUSTION TURBINE','COMBINED CYCLE','STEAM','RECIPROCATING ENGINE']
-    normalize_temperatures = True
     # normalize_temperatures = False
     impute_zeros = True
     curtailment_modeller = CurtailmentModeller(data_paths)
@@ -535,7 +530,6 @@ if __name__=='__main__':
             maximum_curtailment=maximum_curtailment,
             minimum_rsquared=minimum_rsquared,
             unit_types=unit_types,
-            normalize_temperatures=normalize_temperatures,
             impute_zeros=impute_zeros,
         )
         regression_by_unit_type = pd.concat([regression_by_unit_type,curtailment_modeller.regression_by_unit_type],axis='index',ignore_index=True)

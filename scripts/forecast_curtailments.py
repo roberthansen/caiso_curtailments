@@ -16,12 +16,56 @@ class DerateForecaster:
             # 'combined_cycle' : -0.001650,
             # 'combustion_turbine' : -0.002135,
             # 1-stage multilinear regression results:
-            'combined_cycle' : -0.000967521223052699,
-            'combustion_turbine' : -0.001381514787121,
+            # 'combined_cycle' : -0.000967521223052699,
+            # 'combustion_turbine' : -0.001381514787121,
+            # 1-stage multilinear regression results, updated 2024-01-04:
+            'combined_cycle' : -0.0012195504222515076,
+            'combustion_turbine' : -0.0011409511769191276,
+            'steam' : -0.0008791443292576743,
+            'reciprocating_engine' : -0.0003792391840917064,
         },
         'intercepts' : {
+            'KABQ' : {'combined_cycle': 0.9873827345897896, 'combustion_turbine': 0.9881959092821242},
+            'KACV' : {'combined_cycle': 0.9981401856060664, 'combustion_turbine': 0.9982600494551983},
+            'KAKO' : {'combined_cycle': 0.973149564870096, 'combustion_turbine': 0.9748800582548305},
+            'KBCE' : {'combined_cycle': 0.9786222973899497, 'combustion_turbine': 0.9800000766612551},
+            'KBFL' : {'combined_cycle': 1.003811095069536, 'combustion_turbine': 1.0035654724278722},
+            'KBLH' : {'combined_cycle': 1.0032521344593373, 'combustion_turbine': 1.0030425364717843},
+            'KBOI' : {'combined_cycle': 0.9820726087929028, 'combustion_turbine': 0.9832280176992888},
+            'KBOK' : {'combined_cycle': 1.003320734170589, 'combustion_turbine': 1.003106714975486},
+            'KBUR' : {'combined_cycle': 1.0067075273223833, 'combustion_turbine': 1.0062752314730552},
+            'KBZN' : {'combined_cycle': 0.9585454485636342, 'combustion_turbine': 0.961217167911224},
+            'KCAG' : {'combined_cycle': 0.9783010501875662, 'combustion_turbine': 0.9796995336357649},
+            'KCQT' : {'combined_cycle': 0.9925652774912797, 'combustion_turbine': 0.9930444406056363},
+            'KCRQ' : {'combined_cycle': 1.0169919785629176, 'combustion_turbine': 1.0158968564036521},
+            'KCYS' : {'combined_cycle': 0.9756801319962678, 'combustion_turbine': 0.9772475319469377},
+            'KDNR' : {'combined_cycle': 0.9770216374607446, 'combustion_turbine': 0.9785025782415487}
         },
         'rated_temperatures' : {
+            'KABQ' : -10.345833333333333,
+            'KACV' : -1.5250000000000001,
+            'KAKO' : -22.016666666666666,
+            'KBCE' : -17.529166666666665,
+            'KBFL' : 3.125,
+            'KBLH' : 2.6666666666666665,
+            'KBOI' : -14.700000000000001,
+            'KBOK' : 2.7229166666666664,
+            'KBUR' : 5.5,
+            'KBZN' : -33.99166666666667,
+            'KCAG' : -17.792581115566897,
+            'KCQT' : -6.0962813616139995,
+            'KCRQ' : 13.932985674792661,
+            'KCYS' : -19.941666666666666,
+            'KDNR' : -18.841666666666665,
+            'KEKA' : 2.960144927536232,
+            'KEKO' : -16.45,
+            'KELP' : -3.725,
+            'KFAT' : 2.125,
+            'KFLG' : -22.175,
+            'KFSD' : -25.508333333333336,
+            'KGEG' : -24.991666666666664,
+            'KIDA' : -27.316666666666666,
+            'KIGM' : -6.558333333333334,
         }
     }
     def __init__(self,weather_data_path:Path):
@@ -95,7 +139,7 @@ if __name__=='__main__':
     # get parameters for historic weather years:
     historic_weather_data_path = Path(r'M:\Users\RH2\src\caiso_curtailments\climate_informed_weather_data\ncdc_1978_2021.parquet')
     historic_derates = DerateForecaster(
-        weather_data_path=historic_weather_data_path
+        weather_data_path=historic_weather_data_path,
     )
     historic_derates.calculate_derate_intercepts()
     historic_derates.calculate_derates()
@@ -112,7 +156,8 @@ if __name__=='__main__':
     # from historic weather data:
     weather_data_directory = Path(r'M:\Users\RH2\src\caiso_curtailments\climate_informed_weather_data')
     # cif_scenarios = ['15_25','15_50','15_75','20_25','20_50','20_75','30_25','30_50','30_75']
-    cif_scenarios = ['20_75','30_25','30_50','30_75']
+    # cif_scenarios = ['20_75','30_25','30_50','30_75']
+    cif_scenarios = []
     unit_types = ['combined_cycle','combustion_turbine']
     weather_stations = ['KNKX','KOAK','KRDD','KRNO','KSAC','KSAN','KSBA','KSCK','KSFO','KSJC','KSMF','KUKI']
     for cif_scenario in cif_scenarios:

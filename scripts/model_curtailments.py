@@ -479,7 +479,6 @@ class CurtailmentModeller:
                 df0.groupby('RESOURCE ID')['DATETIME'].count().reset_index().rename(columns={'DATETIME':'NUMBER OF OBSERVATIONS'}).compute(),
                 on='RESOURCE ID'
             )
-            #df1 = df1.loc[(df1['NUMBER OF OBSERVATIONS']>300),:]
 
         df2 = pd.DataFrame({'UNIT TYPE':unit_types})
         def f(r):
@@ -534,7 +533,7 @@ class CurtailmentModeller:
         self.regression_by_unit_type = df2
 
 if __name__=='__main__':
-    use_processed = False
+    use_processed = True
     directory = Path(r'M:\Users\RH2\src\caiso_curtailments')
     # target_curtailments = [0.01,0.02,0.03,0.04,0.05,0.055,0.06,0.07,0.08,0.09,0.10,0.15,0.20,0.25,0.30]
     target_curtailments = [0.07]
@@ -563,7 +562,7 @@ if __name__=='__main__':
     unit_types = ['COMBUSTION TURBINE','COMBINED CYCLE','STEAM','RECIPROCATING ENGINE']
     normalize_temperatures = True
     # normalize_temperatures = False
-    impute_zeros = False
+    impute_zeros = True
     curtailment_modeller = CurtailmentModeller(data_paths)
     curtailment_modeller.load_all(use_processed=use_processed)
     regression_by_unit_type = pd.DataFrame(columns=[
