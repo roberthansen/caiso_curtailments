@@ -77,10 +77,13 @@ def calculate_unforced_outage_rates(curtailments,resources,nminutes=5):
 
     '''
 
-    # Extract resource id and start-up dates for battery storage resources from
+    # Extract resource id and start-up dates for thermal resources from
     # resource table:
     df0 = resources.loc[
-        (resources.loc[:,'ENERGY_SOURCE']=='LESR'),
+        (resources.loc[:,'ENERGY_SOURCE']=='NATURAL GAS') |
+        (resources.loc[:,'ENERGY_SOURCE']=='BIOGAS') |
+        (resources.loc[:,'ENERGY_SOURCE']=='BIOMASS')|
+        (resources.loc[:,'ENERGY_SOURCE']=='WASTE TO POWER'),
         ['RESOURCE_ID','COD','NET_DEPENDABLE_CAPACITY']
     ]
 
@@ -150,7 +153,7 @@ def calculate_unforced_outage_rates(curtailments,resources,nminutes=5):
             end_datetime.round(str(nminutes) + 'min')
         )
         delta_datetime = end_datetime - start_datetime
-        return [ts(start_datetime)+td(minutes=nminutes*x) for x in range(max(int(delta_datetime.seconds/(nminutes*60)),1))]
+        return [ts(start_datetime)+td(minutes=nminutes*x) for x in range(max(int(delta_datetime.total_seconds()/(nminutes*60)),1))]
     df1.loc[:,'CURTAILMENT DATETIME'] = df1.apply(lambda r: expand_hours(r,nminutes),axis='columns')
     df1 = df1.explode('CURTAILMENT DATETIME')
     df1 = df1.groupby(
@@ -165,9 +168,11 @@ def calculate_unforced_outage_rates(curtailments,resources,nminutes=5):
     ).last().reset_index()
 
     # Calculate and save durations of each curtailment:
-    df3 = df1.loc[:,['RESOURCE ID','OUTAGE MRID','CURTAILMENT MW','CURTAILMENT DATETIME']].groupby(['RESOURCE ID','OUTAGE MRID','CURTAILMENT MW']).count().reset_index()
+    df3 = df1
+    df3.loc[:,'MONTH'] = df3.loc[:,'CURTAILMENT DATETIME'].map(lambda t: t.replace(hour=0,minute=0,second=0) + MonthBegin(0))
+    df3 = df3.loc[:,['RESOURCE ID','OUTAGE MRID','MONTH','OUTAGE TYPE','NATURE OF WORK','CURTAILMENT MW','CURTAILMENT DATETIME']].groupby(['RESOURCE ID','OUTAGE MRID','MONTH','OUTAGE TYPE','NATURE OF WORK','CURTAILMENT MW']).count().reset_index()
     df3.loc[:,'CURTAILMENT DURATION'] = df3.loc[:,'CURTAILMENT DATETIME'] / 60
-    df3.loc[:,['RESOURCE ID','OUTAGE MRID','CURTAILMENT MW','CURTAILMENT DURATION']].to_csv('CurtailmentDurationsByMRID.csv',index=False)
+    df3.loc[:,['RESOURCE ID','OUTAGE MRID','MONTH','OUTAGE TYPE','NATURE OF WORK','CURTAILMENT MW','CURTAILMENT DURATION']].to_csv('CurtailmentDurationsByMRID_Thermal.csv',index=False)
 
     # Filter curtailment reports for only those during full months after startup:
     df1 = df1.loc[
@@ -272,8 +277,8 @@ if __name__=='__main__':
     date_range = [first_date + td(days=d) for d in range((last_date-first_date).days)]
     download_directory_path=Path('M:\\Users\\RH2\\src\\caiso_curtailments\\caiso_curtailment_reports')
     log_path=Path('M:\\Users\\RH2\\src\\caiso_curtailments\\caiso_curtailment_reports\\download_log.csv')
-    storage_curtailments_path = Path('M:\\Users\\RH2\\src\\caiso_curtailments\\thermal_ucap\\curtailed_thermal_resources.csv')
-    if not storage_curtailments_path.is_file():
+    thermal_curtailments_path = Path('M:\\Users\\RH2\\src\\caiso_curtailments\\thermal_ucap\\curtailed_thermal_resources.csv')
+    if not thermal_curtailments_path.is_file():
         curtailment_downloader = CurtailmentDownloader(
             download_directory_path=download_directory_path,
             log_path=log_path
@@ -306,14 +311,13 @@ if __name__=='__main__':
                 'CURTAILMENT END DATE TIME',
                 'CURTAILMENT MW',
                 'RESOURCE PMAX MW',
-                'NET QUALIFYING CAPACITY MW'
-            ]
-        ].to_csv(storage_curtailments_path,index=False)
+                'NET QUALIFYING CAPACITY MW',
+        ]].to_csv(thermal_curtailments_path,index=False)
     else:
-        df0 = pd.read_csv(storage_curtailments_path)
-
+        df0 = pd.read_csv(thermal_curtailments_path)
+    
     # load master generator capability list
     df2 = pd.read_csv(r'M:\Users\RH2\src\caiso_curtailments\thermal_ucap\MasterCapabilityList_2024-01-22.csv')
-    for nminutes in [1]:
-        df3 = calculate_unforced_outage_rates(df0,df2)
+    for nminutes in [15]:
+        df3 = calculate_unforced_outage_rates(df0,df2,nminutes)
         df3.to_csv(r'M:\Users\RH2\src\caiso_curtailments\thermal_ucap\MonthlyEFOR_{}min.csv'.format(nminutes),index=False)

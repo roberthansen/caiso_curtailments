@@ -19,10 +19,10 @@ class DerateForecaster:
             # 'combined_cycle' : -0.000967521223052699,
             # 'combustion_turbine' : -0.001381514787121,
             # 1-stage multilinear regression results, updated 2024-01-04:
-            'combined_cycle' : -0.0012195504222515076,
-            'combustion_turbine' : -0.0011409511769191276,
-            'steam' : -0.0008791443292576743,
-            'reciprocating_engine' : -0.0003792391840917064,
+            'combined_cycle' : -0.001103443043600427,
+            'combustion_turbine' : -0.0014410010374964729,
+            'steam' : -0.0011541215631732035,
+            'reciprocating_engine' : -0.0011576322644806548,
         },
         'intercepts' : {
             'KABQ' : {'combined_cycle': 0.9873827345897896, 'combustion_turbine': 0.9881959092821242},
@@ -71,6 +71,7 @@ class DerateForecaster:
     def __init__(self,weather_data_path:Path):
         self.weather_data_path = weather_data_path
         self.weather_data_meta,self.weather_data = read_cif(self.weather_data_path)
+        self.weather_data.loc[:,'DateTime'] = self.weather_data.loc[:,'DateTime'].dt.tz_localize(None)
 
     def get_derate_parameters(self,resource_class:dict):
         derate_parameters = {
@@ -137,7 +138,7 @@ class DerateForecaster:
 
 if __name__=='__main__':
     # get parameters for historic weather years:
-    historic_weather_data_path = Path(r'M:\Users\RH2\src\caiso_curtailments\climate_informed_weather_data\ncdc_1978_2021.parquet')
+    historic_weather_data_path = Path(r'M:\Users\RH2\src\caiso_curtailments\climate_informed_weather_data\ncdc_1978_2023.parquet')
     historic_derates = DerateForecaster(
         weather_data_path=historic_weather_data_path,
     )
@@ -149,7 +150,8 @@ if __name__=='__main__':
 
     for unit_type in unit_types:
         for weather_station in weather_stations:
-            for year in historic_derates.derates.loc[(historic_derates.derates.loc[:,'StationID']==weather_station),'DateTime'].map(lambda t: t.year).unique():
+            # for year in historic_derates.derates.loc[(historic_derates.derates.loc[:,'StationID']==weather_station),'DateTime'].map(lambda t: t.year).unique():
+            for year in [2022,2023]:
                 historic_derates.save_derates({'unit_type':unit_type,'weather_station':weather_station},year=ts(year,1,1),save_directory=Path(r'M:\Users\RH2\src\caiso_curtailments\cif_derates')/'historic_weather')
 
     # calculate derates for climate-informed weather using derate parameters

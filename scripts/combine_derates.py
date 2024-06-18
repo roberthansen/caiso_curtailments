@@ -18,7 +18,7 @@ def combine_derate_files(file_paths:list,scenarios:list,output_path:Path):
             dataframe in .csv format.
     '''
     derates = pd.DataFrame(columns=['Weather Name','Hour','Weather Factor','Randomize Profile'])
-    for i,file_path,scenario in enumerate(zip(file_paths,scenarios)):
+    for i,(file_path,scenario) in enumerate(zip(file_paths,scenarios)):
         print('Reading File {:02.0f} of {:02.0f} - {}'.format(i,len(file_paths),file_path.name))
         new_derates = pd.read_csv(file_path)
         station_id,unit_type,year = re.match(r'^([a-z_]+)-([A-Z]{4})_(\d{4}).*$',file_path.name).groups()
@@ -34,8 +34,9 @@ if __name__=='__main__':
     weather_stations = resource_weather_station_pairs.loc[:,'StationID'].unique()
     # weather_stations = ['KSFO']
     unit_types = ['combined_cycle','combustion_turbine']
-    years = list(range(1997,2021))
-    scenarios = [f'{x}_{y}' for x in [15,20,30] for y in [25,50,75]] + ['historic_weather']
+    years = list(range(1997,2023))
+    # scenarios = [f'{x}_{y}' for x in [15,20,30] for y in [25,50,75]] + ['historic_weather']
+    scenarios = ['historic_weather']
     derate_directory = Path(r'M:\Users\RH2\src\caiso_curtailments\cif_derates')
     file_paths = []
     matched_scenarios = []

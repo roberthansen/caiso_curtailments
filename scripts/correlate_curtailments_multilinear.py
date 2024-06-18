@@ -40,7 +40,7 @@ class CurtailmentModeller:
             'merged_data_filename' : data_paths['merged_data_filename'],
         }
 
-    def load_resource_curtailments(self):
+    def load_resource_curtailments(self,nminutes):
         '''
         Reads a file containing extracted prior trade day curtailment reports
         and loads the data into a Pandas DataFrame for analysis.
@@ -74,12 +74,12 @@ class CurtailmentModeller:
         )
         df.loc[:,'CURTAILMENT START DATE TIME'] = pd.to_datetime(df.loc[:,'CURTAILMENT START DATE TIME'])
         df.loc[:,'CURTAILMENT END DATE TIME'] = pd.to_datetime(df.loc[:,'CURTAILMENT END DATE TIME'])
-        def expand_hours(df_row):
+        def expand_hours(df_row,nminutes):
             start_datetime = df_row.loc['CURTAILMENT START DATE TIME'].replace(minute=0,second=0,microsecond=0)
             end_datetime = df_row.loc['CURTAILMENT END DATE TIME']
             delta_datetime = end_datetime - start_datetime
-            return [ts(start_datetime)+td(hours=x) for x in range(max(int(delta_datetime.seconds/3600),1))]
-        df.loc[:,'DATETIME'] = df.apply(expand_hours,axis='columns')
+            return [ts(start_datetime)+td(hours=x) for x in range(max(int(delta_datetime.total_seconds()/(nminutes*60)),1))]
+        df.loc[:,'DATETIME'] = df.apply(lambda r: expand_hours(r,nminutes),axis='columns')
         df.drop(columns=['CURTAILMENT START DATE TIME','CURTAILMENT END DATE TIME'],inplace=True)
         self.resource_curtailments = ddf.from_pandas(df.explode('DATETIME').reset_index().drop(columns=['index']),npartitions=16)
 
@@ -213,9 +213,9 @@ class CurtailmentModeller:
         '''
         self.weather_station_placenames = ddf.read_csv(self.data_paths['weather_station_placenames_filename'])
 
-    def load_all(self,use_processed:bool=True):
+    def load_all(self,use_processed:bool=True,nminutes:int=5):
         self.load_weather(use_processed)
-        self.load_resource_curtailments()
+        self.load_resource_curtailments(nminutes)
         self.load_weather_station_map()
         self.load_weather_station_placenames()
 
@@ -434,7 +434,7 @@ class CurtailmentModeller:
                 ]
             ].compute()
             for weather_station_id in df0_f.loc[:,'WeatherStationID'].unique():
-                df0_f.loc[:,weather_station_id] = 1 if df0_f.loc[:,'WeatherStationID']==weather_station_id else 0
+                df0_f.loc[:,weather_station_id] = 1 * (df0_f.loc[:,'WeatherStationID']==weather_station_id)
             df0_f.drop(columns='WeatherStationID')
             df0_f_d = df0_f.loc[(df0_f.loc[:,'DRY BULB RSQUARED']>minimum_rsquared),[temperature_column,'PERCENT CURTAILMENT']]
             df0_f_d = df0_f.loc[(df0_f.loc[:,'DRY BULB RSQUARED']>minimum_rsquared),[temperature_column,'PERCENT CURTAILMENT']]
@@ -486,6 +486,7 @@ if __name__=='__main__':
     maximum_curtailment = 0.3
     # minimum_rsquared = 0.35
     minimum_rsquared = 0.0
+    nminutes = 15
     data_paths = {
         # 'resource_curtailments_filename' : directory / 'results/curtailments_ambient_due_to_temp.csv',
         'resource_curtailments_filename' : directory / 'results/curtailments_all.csv',
@@ -507,7 +508,7 @@ if __name__=='__main__':
     # normalize_temperatures = False
     impute_zeros = True
     curtailment_modeller = CurtailmentModeller(data_paths)
-    curtailment_modeller.load_all(use_processed=use_processed)
+    curtailment_modeller.load_all(use_processed=use_processed,nminutes=nminutes)
     regression_by_unit_type = pd.DataFrame(columns=[
         'UNIT TYPE',
         'DRY BULB SLOPE',
